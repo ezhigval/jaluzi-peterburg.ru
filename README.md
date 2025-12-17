@@ -78,6 +78,20 @@ make migrate-down  # Откатить миграции
 make clean         # Очистка (node_modules, bin, dist)
 ```
 
+## CI/CD
+
+Проект использует GitHub Actions для автоматической проверки кода:
+
+- **Backend**: `go mod tidy`, `go vet`, `go test`, сборка
+- **Frontend**: `npm ci`, линтинг, проверка типов, сборка
+- **Docker**: проверка сборки Docker-образов
+
+CI запускается автоматически на:
+- Push в `main` и `develop`
+- Pull Request в `main` и `develop`
+
+Все проверки должны пройти успешно перед merge PR. Подробнее в [docs/CI.md](./docs/CI.md).
+
 ## Документация
 
 - [Архитектура inline-CMS](./docs/ARCHITECTURE.md)

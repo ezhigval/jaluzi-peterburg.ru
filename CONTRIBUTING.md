@@ -84,19 +84,36 @@ test(api): add tests for auth endpoints
 
 ### Проверка кода
 
+**Важно**: Запускай проверки локально перед коммитом. CI будет проверять то же самое, но лучше не тратить время на очевидные ошибки.
+
 ```bash
 # Backend
 cd backend
 go fmt ./...
 go vet ./...
-golangci-lint run  # если настроен
+go test ./...
+go build ./cmd/api/main.go
 
 # Frontend
 cd frontend
 npm run lint
-npm run type-check
+npx tsc --noEmit  # type check
 npm run build  # проверка сборки
 ```
+
+### CI проверки
+
+После создания PR автоматически запустится CI, который проверит:
+- ✅ `go mod tidy` (не должно быть изменений)
+- ✅ `go vet ./...`
+- ✅ `go test ./...`
+- ✅ Сборку backend
+- ✅ Линтинг frontend
+- ✅ TypeScript проверку
+- ✅ Сборку frontend
+- ✅ Docker build
+
+**PR не будет принят без зелёного CI.** Все проверки должны пройти успешно.
 
 ### Проверка безопасности
 
