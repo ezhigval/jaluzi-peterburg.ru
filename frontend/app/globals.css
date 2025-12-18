@@ -23,28 +23,3 @@ body {
   position: relative;
 }
 
-.cms-block:hover {
-  outline: 2px dashed rgba(59, 130, 246, 0.5);
-  outline-offset: 2px;
-}
-
-.cms-block.selected {
-  outline: 2px solid rgb(59, 130, 246);
-  outline-offset: 2px;
-}
-
-.cms-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 10;
-}
-
-.cms-overlay.active {
-  pointer-events: all;
-  background: rgba(59, 130, 246, 0.1);
-}
-

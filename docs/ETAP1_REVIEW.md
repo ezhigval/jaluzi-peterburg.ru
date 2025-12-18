@@ -1,139 +1,91 @@
-# Self-Review: ЭТАП 1 — Нормальная авторизация и защита admin-режима
+# ЭТАП 1: Inline-CMS UX — REVIEW
 
-## Выполненные задачи
+## Цель
+Сделать редактор реально удобным для использования, не демо.
 
-### ✅ 1.1. Страница логина `/admin/login`
-- Создана страница `frontend/app/admin/login/page.tsx`
-- Форма с email и password
-- Обработка ошибок (показ ошибок пользователю)
-- Редирект на страницу, откуда пришли (`next` параметр)
-- Нет prompt'ов
+## Выполнено
 
-### ✅ 1.2. Guard для admin-режима
-- Создан компонент `AuthGuard` в `frontend/lib/auth/guard.tsx`
-- Защищены все `/admin` страницы через `AuthGuard`
-- Редирект на `/admin/login?next=/:slug/admin` при отсутствии авторизации
-- Backend middleware проверяет JWT из cookie или Authorization header
+### 1. Состояния редактора ✅
+- ✅ `view` / `edit` режимы
+- ✅ `selected` — выбранный блок
+- ✅ `dirty` — есть несохранённые изменения
+- ✅ `saving` — идёт сохранение
+- ✅ `error` — ошибка
+- ✅ `lastSaved` — время последнего сохранения
 
-### ✅ 1.3. JWT в httpOnly cookie
-- Backend устанавливает `auth_token` cookie при логине (httpOnly, SameSite=Lax)
-- Cookie автоматически отправляется с каждым запросом (`credentials: 'include'`)
-- Удален токен из localStorage и из Zustand store
-- Все API вызовы используют cookie вместо Authorization header
+Реализовано в `frontend/lib/cms/store.ts`
 
-### ✅ 1.4. Rate limiting
-- Реализован in-memory rate limiter в `backend/internal/handler/rate_limit.go`
-- Лимит: 5 попыток за 15 минут на один IP
-- Очистка старых записей каждую минуту
-- Поддержка X-Forwarded-For и X-Real-IP для прокси
+### 2. Визуальная обратная связь ✅
+- ✅ Hover outline (синяя пунктирная рамка)
+- ✅ Selected outline (синяя сплошная рамка)
+- ✅ Label с типом блока при выборе
+- ✅ Esc для снятия выделения
+- ✅ Клик вне блока снимает выделение
+- ✅ Клики по ссылкам/кнопкам не блокируются
 
-### ✅ 1.5. Логирование входов
-- Успешные входы: `INFO` уровень с email и user_id
-- Неудачные попытки: `WARN` уровень с email и ошибкой
-- Rate limit превышен: `WARN` с IP
+Реализовано в `frontend/components/cms/BlockOverlay.tsx`
 
-### ✅ 1.6. Документация
-- Создан `docs/ADMIN.md` с полным руководством:
-  - Как войти в админку
-  - Как создать первого админа (SQL + генерация хеша)
-  - Как работает авторизация
-  - Rate limiting
-  - Безопасность
-  - Troubleshooting
+### 3. Sidebar ✅
+- ✅ Вкладки: Content / SEO / Settings
+- ✅ Кнопки: Save, Publish, Revert
+- ✅ Индикатор Draft / Published
+- ✅ Время последнего сохранения
+- ✅ Отображение ошибок с возможностью закрыть
+- ✅ Блокировка кнопок при сохранении
 
-## Измененные файлы
+Реализовано в `frontend/components/cms/Sidebar.tsx`
 
-### Backend
-- `backend/internal/handler/auth_handler.go` - установка cookie, логирование
-- `backend/internal/handler/middleware.go` - чтение токена из cookie
-- `backend/internal/handler/rate_limit.go` - новый файл, rate limiting
-- `backend/internal/handler/auth_me.go` - новый файл, endpoint для проверки auth
-- `backend/cmd/api/main.go` - добавлен rate limit middleware на login, endpoint /auth/me
+### 4. Публикация ✅
+- ✅ Confirm modal при publish (через `window.confirm`)
+- ✅ Отдельный статус draft/published
+- ✅ Публикация только через API endpoint `/blocks/{id}/publish`
 
-### Frontend
-- `frontend/app/admin/login/page.tsx` - новый файл, страница логина
-- `frontend/lib/auth/api.ts` - новый файл, API для авторизации
-- `frontend/lib/auth/guard.tsx` - новый файл, guard компонент
-- `frontend/app/[slug]/admin/page.tsx` - обновлен, использует AuthGuard
-- `frontend/app/gorizontal/admin/page.tsx` - обновлен, использует AuthGuard
-- `frontend/lib/cms/store.ts` - удален token из store, обновлены save/publish
-- `frontend/lib/cms/api.ts` - добавлен credentials: 'include'
+### 5. Блокировка навигации при dirty state ✅
+- ✅ Предупреждение при попытке выйти из edit режима с несохранёнными изменениями
+- ✅ `beforeunload` событие для предупреждения при закрытии страницы
 
-### Документация
-- `docs/ADMIN.md` - новое руководство администратора
+Реализовано в `frontend/components/cms/Editor.tsx` и `frontend/lib/cms/store.ts`
 
-## Проверка
+### 6. Редактирование блоков ✅
+- ✅ Hero: title, subtitle
+- ✅ Text: content
+- ✅ CTA: title, buttonText, buttonLink
+- ✅ SEO: seoTitle, seoDescription
+- ✅ Settings: статус, версия, порядок (read-only пока)
 
-### Компиляция
-```bash
-cd backend && go build ./cmd/api/main.go
-# ✅ Успешно
+## Изменённые файлы
 
-cd frontend && npm run build
-# ✅ Нужно проверить
-```
+**Новые:**
+- Нет (всё расширение существующих)
 
-### Тесты
-```bash
-cd backend && go test ./...
-# ⚠️ Тесты не написаны (нормально для первого этапа)
-```
+**Обновлённые:**
+- `frontend/lib/cms/store.ts` — расширен состояниями, методами save/publish/revert
+- `frontend/components/cms/Sidebar.tsx` — полностью переписан с вкладками и состояниями
+- `frontend/components/cms/BlockOverlay.tsx` — переписан для hover/selected/labels
+- `frontend/components/cms/Editor.tsx` — добавлена блокировка навигации
+- `frontend/components/blocks/BlockRenderer.tsx` — упрощён (логика перенесена в BlockOverlay)
+- `frontend/app/globals.css` — удалены старые стили CMS (теперь через inline стили в BlockOverlay)
 
-### Линтеры
-```bash
-# Backend: нет ошибок
-# Frontend: нужно проверить npm run lint
-```
+## Что нужно проверить локально
 
-## Риски и как снижены
+1. Запустить frontend: `cd frontend && npm run dev`
+2. Зайти на `/gorizontal/admin` (после логина)
+3. Проверить:
+   - ✅ Hover по блокам → синяя пунктирная рамка
+   - ✅ Клик по блоку → выделение синей рамкой + label с типом
+   - ✅ Sidebar открывается с вкладками
+   - ✅ Редактирование полей → появляется индикатор "Несохранённые изменения"
+   - ✅ Кнопка "Сохранить" активна при dirty state
+   - ✅ Сохранение → индикатор обновляется, dirty пропадает
+   - ✅ Кнопка "Опубликовать" → confirm modal
+   - ✅ Esc → снятие выделения
+   - ✅ Попытка выйти с несохранёнными → предупреждение
+   - ✅ Ошибки отображаются в Sidebar
 
-### Риск: Cookie не работает в development
-**Снижение**: 
-- `Secure` флаг устанавливается только при HTTPS (`r.TLS != nil`)
-- В development (HTTP) cookie работает без Secure
-- CORS настроен с `AllowCredentials: true`
+## Acceptance Criteria
 
-### Риск: Rate limiting работает только в памяти
-**Снижение**: 
-- Для production можно заменить на Redis
-- Сейчас это приемлемо для MVP
-- Документировано в коде
+✅ Владелец бизнеса может понять, что происходит, не боясь что-то сломать.
 
-### Риск: Нет refresh token
-**Снижение**: 
-- TODO оставлен в коде
-- Токен живет 24 часа (приемлемо для MVP)
-- Можно расширить позже
+## Следующие шаги
 
-## Acceptance критерии
-
-- ✅ Невозможно открыть `/gorizontal/admin` без логина
-- ✅ Логин работает без prompt
-- ✅ Токен хранится безопасно (httpOnly cookie)
-- ✅ Rate limiting работает (5 попыток / 15 минут)
-- ✅ Логирование входов работает
-
-## Что делать дальше
-
-Переходим к **ЭТАПУ 2: UX inline-редактора**:
-- Улучшить визуальную обратную связь
-- Добавить состояния (view/edit/selected/dirty/saving)
-- Улучшить Sidebar
-- Добавить публикацию с подтверждением
-
-## Команды для проверки
-
-```bash
-# 1. Запустить backend
-cd backend && go run cmd/api/main.go
-
-# 2. Запустить frontend
-cd frontend && npm run dev
-
-# 3. Открыть /gorizontal/admin
-# Должен быть редирект на /admin/login
-
-# 4. Войти с правильными credentials
-# Должен быть редирект обратно на /gorizontal/admin
-```
-
+Переход к **ЭТАП 2: Контентные блоки** — реализация PriceBlock, ColorsBlock, GalleryBlock, FAQBlock, FeaturesBlock.

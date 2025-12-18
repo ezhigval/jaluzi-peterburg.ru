@@ -25,13 +25,13 @@ func (h *Handler) AuthMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if token == "" {
-		http.Error(w, "Not authenticated", http.StatusUnauthorized)
+		h.WriteError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Not authenticated", nil)
 		return
 	}
 
 	userID, role, err := h.authService.ValidateToken(token)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		h.WriteError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Invalid token", nil)
 		return
 	}
 

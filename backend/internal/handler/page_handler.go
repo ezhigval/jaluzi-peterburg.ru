@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jaluzi-peterburg/backend/internal/domain"
+	"github.com/jaluzi-peterburg/backend/internal/handler/dto"
+	validatorpkg "github.com/jaluzi-peterburg/backend/pkg/validator"
 )
 
 func (h *Handler) GetPageBySlug(w http.ResponseWriter, r *http.Request) {
@@ -14,12 +16,12 @@ func (h *Handler) GetPageBySlug(w http.ResponseWriter, r *http.Request) {
 	page, blocks, err := h.pageService.GetPageBySlug(r.Context(), slug)
 	if err != nil {
 		h.log.Error("failed to get page", "error", err, "slug", slug)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.WriteError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to get page", nil)
 		return
 	}
 
 	if page == nil {
-		http.Error(w, "Page not found", http.StatusNotFound)
+		h.WriteError(w, http.StatusNotFound, ErrCodeNotFound, "Page not found", nil)
 		return
 	}
 
@@ -36,7 +38,7 @@ func (h *Handler) GetPages(w http.ResponseWriter, r *http.Request) {
 	pages, err := h.pageService.GetAllPages(r.Context())
 	if err != nil {
 		h.log.Error("failed to get pages", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.WriteError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to get pages", nil)
 		return
 	}
 
@@ -45,19 +47,21 @@ func (h *Handler) GetPages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
-	var page domain.Page
-	if err := json.NewDecoder(r.Body).Decode(&page); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	var req dto.CreatePageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.WriteError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", nil)
 		return
 	}
 
-	if page.Status == "" {
-		page.Status = "draft"
+	if validationErrors := validatorpkg.ValidateStruct(&req); len(validationErrors) > 0 {
+		h.WriteError(w, http.StatusBadRequest, ErrCodeValidation, "Validation failed", validationErrors)
+		return
 	}
 
-	if err := h.pageService.CreatePage(r.Context(), &page); err != nil {
+	page := req.ToDomain()
+	if err := h.pageService.CreatePage(r.Context(), page); err != nil {
 		h.log.Error("failed to create page", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.WriteError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to create page", nil)
 		return
 	}
 
@@ -69,17 +73,42 @@ func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	var page domain.Page
-	if err := json.NewDecoder(r.Body).Decode(&page); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	var req dto.UpdatePageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.WriteError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", nil)
 		return
 	}
 
-	page.ID = id
+	if validationErrors := validatorpkg.ValidateStruct(&req); len(validationErrors) > 0 {
+		h.WriteError(w, http.StatusBadRequest, ErrCodeValidation, "Validation failed", validationErrors)
+		return
+	}
 
-	if err := h.pageService.UpdatePage(r.Context(), &page); err != nil {
+	// Получаем существующую страницу
+	pages, err := h.pageService.GetAllPages(r.Context())
+	if err != nil {
+		h.log.Error("failed to get pages", "error", err)
+		h.WriteError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to get page", nil)
+		return
+	}
+
+	var page *domain.Page
+	for _, p := range pages {
+		if p.ID == id {
+			page = p
+			break
+		}
+	}
+
+	if page == nil {
+		h.WriteError(w, http.StatusNotFound, ErrCodeNotFound, "Page not found", nil)
+		return
+	}
+
+	req.UpdateDomain(page)
+	if err := h.pageService.UpdatePage(r.Context(), page); err != nil {
 		h.log.Error("failed to update page", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		h.WriteError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to update page", nil)
 		return
 	}
 

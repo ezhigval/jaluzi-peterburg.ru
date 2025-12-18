@@ -3,21 +3,38 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/jaluzi-peterburg/backend/internal/config"
 	"github.com/jaluzi-peterburg/backend/internal/domain"
+	"github.com/jaluzi-peterburg/backend/internal/notification"
 	"github.com/jaluzi-peterburg/backend/internal/repository"
 )
 
 type LeadService struct {
-	leadRepo repository.LeadRepository
-	cfg      *config.Config
+	leadRepo        repository.LeadRepository
+	cfg             *config.Config
+	telegramNotif   *notification.TelegramNotifier
+	emailNotif      *notification.EmailNotifier
+	logger          *slog.Logger
 }
 
-func NewLeadService(leadRepo repository.LeadRepository, cfg *config.Config) *LeadService {
+func NewLeadService(leadRepo repository.LeadRepository, cfg *config.Config, logger *slog.Logger) *LeadService {
+	telegramNotif := notification.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.Telegram.ChatID)
+	emailNotif := notification.NewEmailNotifier(
+		cfg.SMTP.Host,
+		cfg.SMTP.Port,
+		cfg.SMTP.User,
+		cfg.SMTP.Password,
+		cfg.SMTP.From,
+	)
+
 	return &LeadService{
-		leadRepo: leadRepo,
-		cfg:      cfg,
+		leadRepo:      leadRepo,
+		cfg:           cfg,
+		telegramNotif: telegramNotif,
+		emailNotif:    emailNotif,
+		logger:        logger,
 	}
 }
 
@@ -27,21 +44,41 @@ func (s *LeadService) CreateLead(ctx context.Context, lead *domain.Lead) error {
 		return err
 	}
 
-	// Отправка уведомления
+	// Отправка уведомления асинхронно
 	go s.notify(lead)
 
 	return nil
 }
 
 func (s *LeadService) notify(lead *domain.Lead) {
-	// Telegram уведомление
-	if s.cfg.Telegram.BotToken != "" && s.cfg.Telegram.ChatID != "" {
-		// TODO: реализовать отправку в Telegram
-	}
+	// Форматируем сообщение
+	telegramText := notification.FormatLeadMessage(
+		lead.Name,
+		lead.Phone,
+		lead.Email,
+		lead.Message,
+		lead.PageURL,
+	)
 
-	// Email fallback
-	if s.cfg.SMTP.Host != "" {
-		// TODO: реализовать отправку email
+	emailHTML := notification.FormatLeadEmailHTML(
+		lead.Name,
+		lead.Phone,
+		lead.Email,
+		lead.Message,
+		lead.PageURL,
+	)
+
+	// Отправка в Telegram (основной канал)
+	if err := s.telegramNotif.SendMessage(telegramText); err != nil {
+		s.logger.Error("failed to send telegram notification", "error", err)
+		// Fallback на email
+		if err := s.emailNotif.SendEmail(
+			s.cfg.SMTP.From, // Отправляем на адрес из конфига (можно сделать отдельный адрес для уведомлений)
+			"Новая заявка: "+lead.Name,
+			emailHTML,
+		); err != nil {
+			s.logger.Error("failed to send email notification", "error", err)
+		}
 	}
 }
 

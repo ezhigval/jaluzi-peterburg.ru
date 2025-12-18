@@ -38,3 +38,17 @@ export async function getPageBySlug(slug: string): Promise<PageResponse | null> 
   }
 }
 
+export async function getAllPages(): Promise<Page[]> {
+  try {
+    const res = await fetch(`${API_URL}/pages`, {
+      cache: 'no-store',
+      credentials: 'include',
+    })
+    if (!res.ok) return []
+    return res.json()
+  } catch (error) {
+    console.error('Failed to fetch pages:', error)
+    return []
+  }
+}
+

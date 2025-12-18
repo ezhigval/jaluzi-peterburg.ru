@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { login } from '@/lib/auth/api'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -12,7 +12,9 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const next = searchParams.get('next') || '/'
+  // Получаем next параметр, если нет - пытаемся восстановить из предыдущего URL
+  const nextParam = searchParams.get('next')
+  const next = nextParam || '/admin'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,7 +23,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      // Редирект на страницу, откуда пришли (или по умолчанию)
+      // Редирект на страницу, откуда пришли (или по умолчанию на /admin)
       router.push(next)
       router.refresh()
     } catch (err) {
@@ -98,3 +100,14 @@ export default function LoginPage() {
   )
 }
 
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Загрузка...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  )
+}

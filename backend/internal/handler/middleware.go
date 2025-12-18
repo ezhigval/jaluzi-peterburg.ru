@@ -25,13 +25,13 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		if token == "" {
-			http.Error(w, "Authorization required", http.StatusUnauthorized)
+			h.WriteError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Authorization required", nil)
 			return
 		}
 
 		userID, role, err := h.authService.ValidateToken(token)
 		if err != nil {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			h.WriteError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Invalid token", nil)
 			return
 		}
 

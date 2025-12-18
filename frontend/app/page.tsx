@@ -1,29 +1,73 @@
-import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { getPageBySlug } from '@/lib/cms/api'
+import { BlockRenderer } from '@/components/blocks/BlockRenderer'
+import { Editor } from '@/components/cms/Editor'
+import { SchemaOrg } from '@/components/seo/SchemaOrg'
+import type { Metadata } from 'next'
 
-export default function Home() {
+export const dynamic = 'force-dynamic'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await getPageBySlug('home')
+  
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jaluzi-peterburg.ru'
+  const title = data?.page.meta_title || data?.page.title || 'Жалюзи в Санкт-Петербурге'
+  const description = data?.page.meta_description || 'Производство и установка жалюзи в Санкт-Петербурге'
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: siteUrl,
+      siteName: 'Жалюзи-Петербург',
+      locale: 'ru_RU',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+    alternates: {
+      canonical: siteUrl,
+    },
+  }
+}
+
+export default async function Home() {
+  const data = await getPageBySlug('home')
+
+  if (!data) {
+    notFound()
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jaluzi-peterburg.ru'
+
   return (
-    <main className="min-h-screen">
-      <div className="container mx-auto px-4 py-16">
-        <h1 className="text-4xl font-bold mb-8">Жалюзи в Санкт-Петербурге</h1>
-        <p className="text-lg mb-8">
-          Производство и установка жалюзи. Высокое качество, доступные цены.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/gorizontal" className="p-6 border rounded-lg hover:shadow-lg transition">
-            <h2 className="text-2xl font-semibold mb-2">Горизонтальные</h2>
-            <p>Классические горизонтальные жалюзи</p>
-          </Link>
-          <Link href="/vertical" className="p-6 border rounded-lg hover:shadow-lg transition">
-            <h2 className="text-2xl font-semibold mb-2">Вертикальные</h2>
-            <p>Вертикальные жалюзи для больших окон</p>
-          </Link>
-          <Link href="/rimskye" className="p-6 border rounded-lg hover:shadow-lg transition">
-            <h2 className="text-2xl font-semibold mb-2">Римские</h2>
-            <p>Элегантные римские шторы</p>
-          </Link>
-        </div>
-      </div>
-    </main>
+    <>
+      {/* Schema.org LocalBusiness для главной страницы */}
+      <SchemaOrg
+        type="LocalBusiness"
+        data={{
+          name: 'Жалюзи-Петербург',
+          url: siteUrl,
+          telephone: '+7 (812) 123-45-67',
+          address: {
+            streetAddress: 'ул. Примерная, д. 1',
+          },
+        }}
+      />
+
+      <Editor blocks={data.blocks}>
+        <main>
+          {data.blocks.map((block) => (
+            <BlockRenderer key={block.id} block={block} />
+          ))}
+        </main>
+      </Editor>
+    </>
   )
 }
 

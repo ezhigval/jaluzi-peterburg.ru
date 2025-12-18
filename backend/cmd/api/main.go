@@ -12,8 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"github.com/jaluzi-peterburg/backend/internal/config"
+	corspkg "github.com/jaluzi-peterburg/backend/pkg/cors"
 	"github.com/jaluzi-peterburg/backend/internal/handler"
 	"github.com/jaluzi-peterburg/backend/internal/repository/postgres"
 	"github.com/jaluzi-peterburg/backend/internal/service"
@@ -45,13 +45,15 @@ func main() {
 	// Репозитории
 	pageRepo := postgres.NewPageRepository(db)
 	blockRepo := postgres.NewBlockRepository(db)
+	blockVersionRepo := postgres.NewBlockVersionRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
 	leadRepo := postgres.NewLeadRepository(db)
 	userRepo := postgres.NewUserRepository(db)
 
 	// Сервисы
 	pageService := service.NewPageService(pageRepo, blockRepo)
-	blockService := service.NewBlockService(blockRepo)
-	leadService := service.NewLeadService(leadRepo, cfg)
+	blockService := service.NewBlockService(blockRepo, blockVersionRepo, auditRepo)
+	leadService := service.NewLeadService(leadRepo, cfg, log)
 	cmsService := service.NewCMSService(pageRepo, blockRepo)
 	authService := service.NewAuthService(userRepo, cfg.JWT)
 
@@ -68,22 +70,19 @@ func main() {
 	// Роутер
 	r := chi.NewRouter()
 
+	// CORS должен быть первым
+	allowedOrigins := []string{
+		cfg.FrontendURL,
+		"http://localhost:3000",
+	}
+	r.Use(corspkg.Middleware(allowedOrigins))
+
 	// Middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
-
-	// CORS
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{cfg.FrontendURL},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
 
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +107,10 @@ func main() {
 			r.Put("/blocks/{id}", h.UpdateBlock)
 			r.Delete("/blocks/{id}", h.DeleteBlock)
 			r.Post("/blocks/{id}/publish", h.PublishBlock)
+			r.Get("/blocks/{id}/versions", h.GetBlockVersions)
+			r.Post("/blocks/{id}/restore", h.RestoreBlockVersion)
 			r.Get("/leads", h.GetLeads)
+			r.Get("/leads/export", h.ExportLeadsCSV)
 			r.Put("/leads/{id}/status", h.UpdateLeadStatus)
 		})
 
